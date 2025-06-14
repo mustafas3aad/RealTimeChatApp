@@ -1,0 +1,180 @@
+﻿@using Real_Time_Chat_Application.ViewModels.Messages
+@model ChatViewModel
+
+
+<style>
+    /* Receiver info style */
+    .receiver-info {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 20px;
+        background-color: #e6e6e6;
+    }
+
+    .receiver-info .first-letter {
+         width: 60px;
+         height: 60px;
+         border-radius: 50%;
+         background-color: darkblue;
+         color: white;
+         font-size: 35px;
+         margin-right: 10px;
+         text-align: center;
+      }
+
+    /* Messages box style */
+    .messages-box {
+        display: flex;
+        flex-direction: column;
+        background-color: #e6e6e6;
+        height: 75vh;
+        overflow: auto;
+        padding: 20px;
+    }
+
+    .message {
+        padding: 20px;
+        background-color: #e6e6e6;
+        color: white;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        max-width: 80%;
+    }
+
+    .sent-message {
+        background-color: darkblue;
+        align-self: start;
+    }
+
+    .received-message {
+        background-color: darkred;
+        align-self: end;
+    }
+
+    /* Send box style */
+    .send-message-box {
+        display: flex;
+        margin-top: 20px;
+    }
+
+    .message-field {
+        flex: 1;
+        border-radius: 10px;
+        border: none;
+        background-color: #e6e6e6;
+        padding: 10px;
+        
+    }
+
+    .message-field:focus {
+        outline:none;
+    }
+
+    .send-btn {
+        border-radius: 10px;
+    }
+</style>
+
+
+
+
+<div class="message-wrap">
+    <div class="receiver-info">
+        <div class="first-letter">
+            @* Get first letter of user name to display as an image *@
+            @Model.ReceiverUserName.Substring(0, 1).ToUpper()
+        </div>
+        @Model.ReceiverUserName
+    </div>
+
+    <div class="messages-box">
+        @foreach (var item in Model.Messages)
+        {
+            if (item.IsCurrentUserSendMessage)
+            {
+                @* Current user message *@
+                <div class="message sent-message">
+                    <p>@item.Text</p>
+                    <span>@item.Date @item.Time</span>
+                </div>
+            }
+            else
+            {
+                @* Receiver message *@
+                <div class="message received-message">
+                    <p>@item.Text</p>
+                    <span>@item.Date @item.Time</span>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="send-message-box">
+        <textarea rows="4" class="message-field" placeholder="Type your message"></textarea>
+        <button class="send-btn btn btn-dark">Send</button>
+    </div>
+</div>
+
+@section Scripts {
+    
+    <script>
+        // Build SignalR connection
+        var connection = new signalR.HubConnectionBuilder().withUrl("/chatHub").build();
+
+        // Start the connection
+        connection.start().then(function () {
+            console.log("Connected");
+        }).catch(function (err) {
+            console.error(err.toString());
+        });
+
+        // Send message on button click
+        $(".send-btn").click(function () {
+            var receiverId = "@Model.ReceiverId";
+            var message = $(".message-field").val();
+
+            // Invoke ChatHub SendMessage function
+            connection.invoke("SendMessage", receiverId, message);
+
+            $(".message-field").val("").focus();
+        });
+
+
+
+
+        // Append messages in real time when any user sends a message to the current user
+        connection.on("ReceiveMessage", function (message, date, time, senderId) {
+            var message = '';
+
+            if (senderId == "@Model.CurrentUserId") {
+                message = `
+                    <div class="message sent-message">
+                        <p>${message}</p>
+                        <span>${time}</span>
+                    </div>
+                `;
+            } else {
+                message = `
+                    <div class="message received-message">
+                        <p>${message}</p>
+                        <span>${time}</span>
+                    </div>
+                `;
+            }
+
+            $(".messages-box").append(message);
+            $(".messages-box").scrollTop($(".messages-box")[0].scrollHeight);
+        });
+
+
+        $(function () {
+            // Go to last message
+            $(".messages-box").scrollTop($(".messages-box")[0].scrollHeight);
+        });
+
+
+    </script>
+}
+
+
